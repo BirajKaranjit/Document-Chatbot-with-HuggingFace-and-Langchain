@@ -6,8 +6,8 @@
     This approach enhances accuracy by combining document retrieval with generative response generation.
     
    **Technologies Used**
-    - Streamlit: For building the web application
-    - Hugging Face: For NLP models and embeddings
+   Streamlit: For building the web application
+   Hugging Face: For NLP models and embeddings
     - Langchain Community: For document loading, text splitting and vectorization
     - FAISS: For vector storage and retrieval
     - Google Cloud: For email services
