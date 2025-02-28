@@ -1,0 +1,17 @@
+streamlit
+google-generativeai
+pdfplumber
+pydantic
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+langchain
+langchain-community
+unstructured
+nltk
+python-docx
+sentence-transformers
+langchain-huggingface
+faiss-cpu
+PyPDF2
