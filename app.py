@@ -119,7 +119,24 @@ def extract_date_from_input(user_input):
         if f"next {day}" in user_input:
             days_ahead = (i - today.weekday() + 7) % 7 or 7
             return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-    
+            
+    # Check for specific weekdays without "next" i.e only "Monday", "Tuesday", etc.
+    for i, day in enumerate(weekdays):
+        if day in user_input:
+            if i > today.weekday():
+                # If the day is later in the week
+                return (today + timedelta(days=(i - today.weekday()))).strftime("%Y-%m-%d")
+            else:
+                # If the day is earlier in the week (return next week's day)
+                return (today + timedelta(days=(i - today.weekday() + 7) % 7)).strftime("%Y-%m-%d")
+     
+    # Check for "in X days"
+    match = re.search(r"in (\d+) days", user_input)
+    if match:
+        days_ahead = int(match.group(1))
+        return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+        
+    # Check for date in YYYY-MM-DD format
     match = re.search(r"(\d{4})-(\d{2})-(\d{2})", user_input)
     if match:
         return match.group(0)
