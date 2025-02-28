@@ -15,3 +15,4 @@ sentence-transformers
 langchain-huggingface
 faiss-cpu
 PyPDF2
+tesseract
