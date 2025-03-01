@@ -114,12 +114,14 @@ def extract_date_from_input(user_input):
         return today.strftime("%Y-%m-%d")
     if "tomorrow" in user_input:
         return (today + timedelta(days=1)).strftime("%Y-%m-%d")
+    if "day after tomorrow" in user_input:
+        return (today + timedelta(days=2)).strftime("%Y-%m-%d")
     
     for i, day in enumerate(weekdays):
         if f"next {day}" in user_input:
             days_ahead = (i - today.weekday() + 7) % 7 or 7
             return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-            
+        
     # Check for specific weekdays without "next" i.e only "Monday", "Tuesday", etc.
     for i, day in enumerate(weekdays):
         if day in user_input:
@@ -130,12 +132,11 @@ def extract_date_from_input(user_input):
                 # If the day is earlier in the week (return next week's day)
                 return (today + timedelta(days=(i - today.weekday() + 7) % 7)).strftime("%Y-%m-%d")
      
-    # Check for "in X days"
+     # Check for "in X days"
     match = re.search(r"in (\d+) days", user_input)
     if match:
         days_ahead = int(match.group(1))
         return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-        
     # Check for date in YYYY-MM-DD format
     match = re.search(r"(\d{4})-(\d{2})-(\d{2})", user_input)
     if match:
@@ -161,7 +162,7 @@ def send_confirmation_email(name, email, date):
     body = f"""
     Hi {name},
     
-    Your call request has been submitted successfully✅. We will contact you on {date} for further processes.
+    Your call request has been submitted successfully. We will contact you on {date} for further processes.
     Till then if you like to ask any queries or re-configure the call request date, feel free to ask by replying to this email, or you can contact on the below listed phone number also.
     
     Best regards,
@@ -180,17 +181,27 @@ def send_confirmation_email(name, email, date):
     except Exception as e:
         st.error(f"Failed to send email: {e}")
 
+def validate_email(email):
+    # Regex pattern for validating email
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    return re.match(pattern, email) is not None
+
 # Function to handle call requests
 def show_call_request_form():
     st.subheader("📞 Request a Call")
     with st.form("call_request_form"):
         name = st.text_input("Your Name:")
         phone = st.text_input("Phone Number:")
-        email = st.text_input("Email Address:")
+        email = st.text_input("Email Address:", help="Enter Valid email address to receive confirmation email.")
         preferred_date = st.text_input("Preferred Date (e.g., Tomorrow, Next Monday, YYYY-MM-DD):")
         submitted = st.form_submit_button("Submit")
         
         if submitted:
+            # Validate email
+            if not validate_email(email):
+                st.error("Please enter a valid email address.")
+                return
+            
             extracted_date = extract_date_from_input(preferred_date)
             if extracted_date:
                 send_confirmation_email(name, email, extracted_date)
@@ -234,8 +245,15 @@ def show_about_section():
 
 if menu == "Chat":
     st.subheader("💬 Chat with AI")
-    file_type = st.selectbox("Select File Type", ["PDF", "DOCX", "TXT", "Image"])
+    file_type = st.selectbox("Select File Type", ["PDF","Image", "DOCX", "TXT" ])
     
+    # Reset uploaded_files when file_type changes
+    if "prev_file_type" not in st.session_state:
+        st.session_state.prev_file_type = file_type
+    if st.session_state.prev_file_type != file_type:
+        st.session_state.uploaded_files = None
+        st.session_state.prev_file_type = file_type
+
     if file_type == "Hyper-Link":
         # Input box for the link
         link = st.text_input("Insert the link:")
