@@ -5,6 +5,7 @@ import os
 import asyncio
 import numpy as np
 import pdfplumber
+import base64
 from docx import Document
 from PIL import Image
 from PyPDF2 import PdfReader
@@ -183,7 +184,7 @@ def send_confirmation_email(name, email, date):
 
 def validate_email(email):
     # Regex pattern for validating email
-    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    pattern = pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"
     return re.match(pattern, email) is not None
 
 # Function to handle call requests
@@ -193,12 +194,13 @@ def show_call_request_form():
         name = st.text_input("Your Name:")
         phone = st.text_input("Phone Number:")
         email = st.text_input("Email Address:", help="Enter Valid email address to receive confirmation email.")
+        st.caption("Enter a valid email address to receive a confirmation email.")
         preferred_date = st.text_input("Preferred Date (e.g., Tomorrow, Next Monday, YYYY-MM-DD):")
         submitted = st.form_submit_button("Submit")
         
         if submitted:
             # Validate email
-            if not validate_email(email):
+            if not email or not validate_email(email):
                 st.error("Please enter a valid email address.")
                 return
             
@@ -243,17 +245,53 @@ def show_about_section():
  
     """)
 
+# Function to display uploaded file content
+# Function to display PDF as PDF
+def display_pdf(file):
+    # Read the PDF file as binary data
+    pdf_bytes = file.read()
+    # Encode the PDF file in base64
+    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+    # Embed the PDF in an iframe
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="400" align= "center" height="600" type="application/pdf"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
+# Function to display DOCX as text
+def display_docx(file):
+    doc = Document(file)
+    text = "\n".join([para.text for para in doc.paragraphs])
+    st.write("### DOCX Content")
+    st.text_area("Extracted Text", text, height=300)
+
+# Function to display TXT as text
+def display_txt(file):
+    text = file.read().decode("utf-8")
+    st.write("### TXT Content")
+    st.text_area("Extracted Text", text, height=300)
+
+# Function to display Image as image
+def display_image(file):
+    image = Image.open(file)
+    st.write("### Image Preview")
+    st.image(image, caption="Uploaded Image",)
+
+# Initialize session state for toggle button
+if "show_content" not in st.session_state:
+    st.session_state.show_content = False
+
+#Chat Section
 if menu == "Chat":
     st.subheader("💬 Chat with AI")
-    file_type = st.selectbox("Select File Type", ["PDF","Image", "DOCX", "TXT" ])
+    file_type = st.selectbox("Select File Type", ["PDF", "Image", "DOCX", "TXT"])
     
-    # Reset uploaded_files when file_type changes
+    # Reset uploaded_files and vectorstore when file_type changes
     if "prev_file_type" not in st.session_state:
         st.session_state.prev_file_type = file_type
     if st.session_state.prev_file_type != file_type:
         st.session_state.uploaded_files = None
+        st.session_state.vectorstore = None  # Clear the vectorstore
         st.session_state.prev_file_type = file_type
-
+    
     if file_type == "Hyper-Link":
         # Input box for the link
         link = st.text_input("Insert the link:")
@@ -272,13 +310,48 @@ if menu == "Chat":
         uploaded_files = st.file_uploader("Upload Files", accept_multiple_files=True, type=["pdf", "docx", "txt", "png", "jpg", "jpeg"])
         
         if uploaded_files:
-            process_input(uploaded_files, file_type)
-            user_query = st.text_input("Ask something about the document:")
+            # Validate file types
+            valid_files = []
+            for file in uploaded_files:
+                if file_type == "PDF" and file.type == "application/pdf":
+                    valid_files.append(file)
+                elif file_type == "DOCX" and file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    valid_files.append(file)
+                elif file_type == "TXT" and file.type == "text/plain":
+                    valid_files.append(file)
+                elif file_type == "Image" and file.type in ["image/png", "image/jpeg", "image/jpg"]:
+                    valid_files.append(file)
             
-            if user_query:
-                response = answer_question(user_query)
-                st.session_state.chat_history.append({"query": user_query, "response": response})
-                st.write("🤖 AI:", response)
+            if valid_files:
+                st.session_state.uploaded_files = valid_files
+
+                # Toggle button to show/hide file content
+                if st.button("Show File Content" if not st.session_state.show_content else "Hide File Content", help="Click Here to view the uploaded file"):
+                    st.session_state.show_content = not st.session_state.show_content
+
+                 # Display file content if toggle is on
+                if st.session_state.show_content:
+                    st.write("### Uploaded File Content")
+                    for file in valid_files:
+                        if file_type == "PDF":
+                            display_pdf(file)
+                        elif file_type == "DOCX":
+                            display_docx(file)
+                        elif file_type == "TXT":
+                            display_txt(file)
+                        elif file_type == "Image":
+                            display_image(file)
+
+                #process the input
+                process_input(valid_files, file_type)
+                user_query = st.text_input("Ask something about the document:")
+                
+                if user_query:
+                    response = answer_question(user_query)
+                    st.session_state.chat_history.append({"query": user_query, "response": response})
+                    st.write("🤖 AI:", response)
+            else:
+                st.error(f"Invalid file type for {file_type}. Please upload the correct file type.")
 
 elif menu == "History":
     st.subheader("📝 Chat History")
